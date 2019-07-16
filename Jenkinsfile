@@ -1,4 +1,4 @@
-{
+pipeline {
     "author": "artemry@mellanox.com",
     "notify": "artemry@mellanox.com",
     "ci_version": "1.0",
