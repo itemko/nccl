@@ -1,6 +1,5 @@
 {
     "author": "artemry@mellanox.com",
-    "notify": "artemry@mellanox.com",
     "ci_version": "2.3",
     "parameters": {"PARAM1": "VALUE1", "PARAM2": "VALUE2"},
     "timeout": 3,
@@ -23,7 +22,18 @@
                         "skip": false,
                         "ignore_failure": false,
                         "finally": false
-                    }
+                    },
+                    {
+                        "name": "Compile",
+                        "module": "com.mellanox.jenkins.generic_modules.BashScript",
+                        "category": "Build",
+                        "node": "master",
+                        "parameters": {
+                            "SCRIPT_PATH": "run.sh"
+                        },
+                        "skip": false,
+                        "ignore_failure": false
+                    }, 
                 ]
             }
         ]
