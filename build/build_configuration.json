@@ -11,7 +11,7 @@
                 [
                     {
                         "name": "Clone",
-                        "module": "ci_framework/modules/generic_modules/checkout.groovy",
+                        "module": "com.mellanox.jenkins.generic_modules.Checkout",
                         "category": "Clone",
                         "node": "master",
                         "parameters": {
