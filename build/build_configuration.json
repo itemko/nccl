@@ -7,23 +7,24 @@
     "phases":
         [
             {        
-            "phase_1":
-            [
-                {
-                    "name": "Clone",
-                    "module": "ci_framework/modules/generic_modules/checkout.groovy",
-                    "category": "Clone",
-                    "node": "master",
-                    "parameters": {
-                        "BRANCH_NAME": "master",
-                        "GIT_REPOSITORY": "git@gitlab.com:Mellanox/ml-devops-infra.git", 
-                        "CLONE_PATH": "ml-devops-infra",
-                        "CREDENTIALSID": "mellanox-github"
-                        },
-                    "skip": false,
-                    "ignore_failure": false,
-                    "finally": false
-                }
-            ]
+                "phase_1":
+                [
+                    {
+                        "name": "Clone",
+                        "module": "ci_framework/modules/generic_modules/checkout.groovy",
+                        "category": "Clone",
+                        "node": "master",
+                        "parameters": {
+                            "BRANCH_NAME": "master",
+                            "GIT_REPOSITORY": "git@gitlab.com:Mellanox/ml-devops-infra.git", 
+                            "CLONE_PATH": "ml-devops-infra",
+                            "CREDENTIALSID": "mellanox-github"
+                            },
+                        "skip": false,
+                        "ignore_failure": false,
+                        "finally": false
+                    }
+                ]
+            }
         ]
 }
