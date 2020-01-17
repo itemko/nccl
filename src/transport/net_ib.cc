@@ -53,20 +53,7 @@ NCCL_PARAM(IbTimeout, "IB_TIMEOUT", 14);
 NCCL_PARAM(IbRetryCnt, "IB_RETRY_CNT", 7);
 NCCL_PARAM(IbSl, "IB_SL", 0);
 NCCL_PARAM(IbTc, "IB_TC", 0);
-
-// Allocate memory to be potentially ibv_reg_mr'd. This needs to be
-// allocated on separate pages as those pages will be marked DONTFORK
-// and if they are shared, that could cause a crash in a child process
-static ncclResult_t ncclIbMalloc(void** ptr, size_t size) {
-  size_t page_size = sysconf(_SC_PAGESIZE);
-  void* p;
-  int size_aligned = ROUNDUP(size, page_size);
-  int ret = posix_memalign(&p, page_size, size_aligned);
-  if (ret != 0) return ncclSystemError;
-  memset(p, 0, size);
-  *ptr = p;
-  return ncclSuccess;
-}
+NCCL_PARAM(IbArThreshold, "IB_AR_THRESHOLD", 8192);
 
 pthread_t ncclIbAsyncThread;
 static void* ncclIbAsyncThreadMain(void* args) {
@@ -182,7 +169,11 @@ ncclResult_t ncclIbDevices(int* ndev) {
 
 ncclResult_t ncclIbPciPath(int dev, char** path) {
   char devicepath[PATH_MAX];
-  snprintf(devicepath, PATH_MAX, "/sys/class/infiniband/%s/device", ncclIbDevs[dev].devName);
+  if (getenv("NCCL_NET_OLD_PCIPATH") != NULL) {
+    snprintf(devicepath, PATH_MAX, "/sys/class/infiniband/%s/device", ncclIbDevs[dev].devName);
+  } else {
+    snprintf(devicepath, PATH_MAX, "/sys/class/infiniband/%s", ncclIbDevs[dev].devName);
+  }
   *path = realpath(devicepath, NULL);
   if (*path == NULL) {
     WARN("Could not find real path of %s", devicepath);
@@ -325,7 +316,8 @@ ncclResult_t ncclIbCreateQp(uint8_t ib_port, struct ncclIbVerbs* verbs, int acce
   qpInitAttr.send_cq = verbs->cq;
   qpInitAttr.recv_cq = verbs->cq;
   qpInitAttr.qp_type = IBV_QPT_RC;
-  qpInitAttr.cap.max_send_wr = MAX_REQUESTS;
+  // We might send 2 requests per send (RDMA_WRITE+RDMA_WRITE_WITH_IMM)
+  qpInitAttr.cap.max_send_wr = 2*MAX_REQUESTS;
   qpInitAttr.cap.max_recv_wr = MAX_REQUESTS;
   qpInitAttr.cap.max_send_sge = 1;
   qpInitAttr.cap.max_recv_sge = 1;
@@ -627,6 +619,10 @@ ncclResult_t ncclIbIsend(void* sendComm, void* data, int size, void* mhandle, vo
   wr.opcode = IBV_WR_SEND;
   wr.send_flags = IBV_SEND_SIGNALED;
 
+  int useAr = 0;
+  if (size > ncclParamIbArThreshold()) {
+    useAr = 1;
+  }
 #if USE_RDMA_WRITE
   __sync_synchronize(); // order the readyPtr load against rkey load below
   // Sanity checks to catch user collective call count/size mismatches
@@ -636,7 +632,7 @@ ncclResult_t ncclIbIsend(void* sendComm, void* data, int size, void* mhandle, vo
         size, slot->size, slot->addr, slot->rkey, slot->seq, comm->fifoHead);
     return ncclInternalError;
   }
-  wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
+  wr.opcode = useAr ? IBV_WR_RDMA_WRITE : IBV_WR_RDMA_WRITE_WITH_IMM;
   wr.wr.rdma.remote_addr = slot->addr;
   wr.wr.rdma.rkey = slot->rkey;
   wr.imm_data = size; // Send the message size via imm_data
@@ -651,6 +647,19 @@ ncclResult_t ncclIbIsend(void* sendComm, void* data, int size, void* mhandle, vo
 
   struct ibv_send_wr* bad_wr;
   NCCLCHECK(wrap_ibv_post_send(comm->qp, &wr, &bad_wr));
+
+#if USE_RDMA_WRITE
+  // When using adaptive routing, send the bulk of the data first as an
+  // RDMA_WRITE, then a 0-byte RDMA_WRITE_WITH_IMM to trigger a remote
+  // completion.
+  if (useAr) {
+    wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
+    wr.sg_list = NULL;
+    wr.num_sge = 0;
+    wr.send_flags &= ~IBV_SEND_SIGNALED;
+    NCCLCHECK(wrap_ibv_post_send(comm->qp, &wr, &bad_wr));
+  }
+#endif
   *request = req;
   return ncclSuccess;
 }

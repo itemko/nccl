@@ -20,8 +20,6 @@ struct cudaLaunchParams {
 };
 #endif
 
-#define DEFAULT_BUFFER_SIZE_BYTES (1LL << 22) /* 4MiB */
-
 #define CACHE_LINE_SIZE 128
 #define MEM_ALIGN 4096
 #define CUDA_IPC_MIN 2097152UL
@@ -91,9 +89,6 @@ struct ncclComm {
   // Channels for collectives
   int nChannels;
 
-  // Only nvlink is used for inter-GPU communication
-  int nvlink;
-
   // Algorithm/Protocols thresholds
   ssize_t threadThresholds[NCCL_NUM_ALGORITHMS][NCCL_NUM_PROTOCOLS];
   float latencies[NCCL_NUM_FUNCTIONS][NCCL_NUM_ALGORITHMS][NCCL_NUM_PROTOCOLS];
@@ -136,6 +131,9 @@ struct ncclComm {
   // Global proxy thread
   pthread_t proxyThread;
   struct ncclProxyState proxyState;
+
+  // Whether this communicator uses collNet
+  int collNetSupport;
 };
 
 #endif
