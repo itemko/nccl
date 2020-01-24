@@ -665,3 +665,12 @@ ncclResult_t ncclTopoSetAffinity(struct ncclTopoSystem* system, int rank) {
   }
   return ncclSuccess;
 }
+
+ncclResult_t ncclTopoCollNetDeviceCount(struct ncclTopoSystem* system, int* count) {
+  int c = 0;
+  for (int n=0; n<system->nodes[NET].count; n++) {
+    if (system->nodes[NET].nodes[n].net.collSupport) c++;
+  }
+  *count = c;
+  return ncclSuccess;
+}

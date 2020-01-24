@@ -625,13 +625,17 @@ static ncclResult_t initTransportsRank(struct ncclComm* comm, ncclUniqueId* comm
   NCCLCHECK(ncclTopoPrint(comm->topo));
 
   // Get rings and trees
+  int maxChannels;
+  NCCLCHECK(ncclTopoCollNetDeviceCount(comm->topo, &maxChannels));
+  if (maxChannels == 0) maxChannels = MAXCHANNELS/2;
+
   struct ncclTopoGraph ringGraph;
   ringGraph.id = 0;
   ringGraph.pattern = NCCL_TOPO_PATTERN_RING;
   ringGraph.crossNic = ncclParamCrossNic();
   ringGraph.collNet = 0;
   ringGraph.minChannels = 1;
-  ringGraph.maxChannels = MAXCHANNELS/2;
+  ringGraph.maxChannels = maxChannels;
   NCCLCHECK(ncclTopoCompute(comm->topo, &ringGraph));
   NCCLCHECK(ncclTopoPrintGraph(comm->topo, &ringGraph));
 
