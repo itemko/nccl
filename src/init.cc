@@ -285,17 +285,8 @@ static ncclResult_t fillInfo(struct ncclComm* comm, struct ncclPeerInfo* info, u
   info->shmDev = statbuf.st_dev;
 
   info->busId = comm->busId;
-  int netDevs;
 
-  NCCLCHECK(ncclNetDevices(&netDevs));
-  for (int n=0; n<netDevs; n++) {
-    int ptrSupport;
-    NCCLCHECK(ncclNetPtrSupport(n, &ptrSupport));
-    if (ptrSupport & NCCL_PTR_CUDA) {
-      NCCLCHECK(ncclGpuGdrSupport(n, &info->gdrSupport));
-      break;
-    }
-  }
+  NCCLCHECK(ncclGpuGdrSupport(&info->gdrSupport));
   return ncclSuccess;
 }
 
@@ -625,13 +616,17 @@ static ncclResult_t initTransportsRank(struct ncclComm* comm, ncclUniqueId* comm
   NCCLCHECK(ncclTopoPrint(comm->topo));
 
   // Get rings and trees
+  int maxChannels;
+  NCCLCHECK(ncclTopoCollNetDeviceCount(comm->topo, &maxChannels));
+  if (maxChannels == 0) maxChannels = MAXCHANNELS/2;
+
   struct ncclTopoGraph ringGraph;
   ringGraph.id = 0;
   ringGraph.pattern = NCCL_TOPO_PATTERN_RING;
   ringGraph.crossNic = ncclParamCrossNic();
   ringGraph.collNet = 0;
   ringGraph.minChannels = 1;
-  ringGraph.maxChannels = MAXCHANNELS/2;
+  ringGraph.maxChannels = maxChannels;
   NCCLCHECK(ncclTopoCompute(comm->topo, &ringGraph));
   NCCLCHECK(ncclTopoPrintGraph(comm->topo, &ringGraph));
 
